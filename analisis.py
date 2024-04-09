@@ -1,25 +1,33 @@
-import os
-import radon
-from radon.cli.harvest import CCHarvester
+import pandas as pd
+import subprocess
+import matplotlib.pyplot as plt
+def get_complexity_over_time(file_path):
+    result = subprocess.run(["git", "log", "--pretty=format:%ad", "--date=short", "--", file_path], capture_output=True, text=True)
+    commits = result.stdout.splitlines()
+    complexities = []
+    for commit in commits:
+        result = subprocess.run(["git", "checkout", commit], capture_output=True, text=True)
+        result = subprocess.run(["radon", "cc", file_path], capture_output=True, text=True)
+        complexities.append(int(result.stdout.split()[0]))
+    return commits, complexities
 
-def obtener_complejidad_por_archivo(ruta_repositorio):
-    # Lista para almacenar la complejidad ciclomática de cada archivo
-    complejidad_por_archivo = {}
+def plot_complexity_over_time(file_path):
+    commits, complexities = get_complexity_over_time(file_path)
+    df = pd.DataFrame({"Date": commits, "Complexity": complexities})
+    plt.plot(df["Date"], df["Complexity"])
+    plt.title(f"Cyclomatic Complexity over Time for {file_path}")
+    plt.xlabel("Date")
+    plt.ylabel("Complexity")
+    plt.grid()
+    plt.show()
 
-    for ruta, directorios, archivos in os.walk(ruta_repositorio):
-        for archivo in archivos:
-            if archivo.endswith('.py'):
-                ruta_completa = os.path.join(ruta, archivo)
-                with open(ruta_completa, 'r', encoding='utf-8') as f:
-                    código = f.read()
-                complejidad = radon.complexity_cc_rank(código)
-                complejidad_por_archivo[ruta_completa] = complejidad
+file_paths = [
+    "sklearn/linear_model/_logistic.py",
+    "sklearn/neighbors/ridge.py",
+    "sklearn/neighbors/quad_tree.py",
+    "sklearn/decomposition/pca.py",
+    "sklearn/metrics/pairwise.py"
+]
 
-    return complejidad_por_archivo
-
-ruta_repositorio = '/Users/carlosgon/Desktop/entrega1_proyecto_BP/scikit-learn'  # Cambia la ruta al directorio de tu repositorio
-complejidad_por_archivo = obtener_complejidad_por_archivo(ruta_repositorio)
-
-with open('output2.txt', 'w') as f:
-    for archivo, complejidad in complejidad_por_archivo.items():
-        f.write(f"{archivo} {complejidad}\n")
+for file_path in file_paths:
+    plot_complexity_over_time(file_path)
